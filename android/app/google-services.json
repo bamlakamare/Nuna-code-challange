@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "645295786932",
+    "project_id": "pushnotfication-7ac78",
+    "storage_bucket": "pushnotfication-7ac78.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:645295786932:android:a20e061edcd82b951dc0e1",
+        "android_client_info": {
+          "package_name": "com.example.nuna_tech_code_challange"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC507hX8qMfqAOX9EZdeDlj3LzBo7H-Jo4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
