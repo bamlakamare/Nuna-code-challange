@@ -1,4 +1,3 @@
-// lib/screens/main_screen.dart
 import 'package:flutter/material.dart';
 import 'package:nuna_tech_code_challange/screens/video_List_Screen.dart';
 import '../services/api_service.dart';
@@ -107,7 +106,7 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Products & Posts', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+        title: Text('Products & Posts', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.teal,
       ),
       body: _selectedIndex == 0 ? _buildProductsAndComments() : VideoListScreen(), // Display based on selected index
@@ -136,33 +135,52 @@ class _MainScreenState extends State<MainScreen> {
         ? Center(
       child: CircularProgressIndicator(),
     )
-        : ListView.builder(
+        : CustomScrollView(
       controller: _scrollController,
-      itemCount: _products.length + _posts.length + 1, // +1 for the loading indicator
-      itemBuilder: (context, index) {
-        if (index < _products.length) {
-          // Display products
-          final product = _products[index];
-          return ProductCard(product: product);
-        } else if (index < _products.length + _posts.length) {
-          // Display posts with comments
-          final postIndex = index - _products.length;
-          final postWithComments = _posts[postIndex];
-          final post = postWithComments['post'];
-          final comments = postWithComments['comments'];
-          return PostCard(post: post, comments: comments);
-        } else {
-          // Display loading indicator at the bottom
-          return _isLoadingMore
+      slivers: [
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+                (context, index) {
+              if (index < _products.length) {
+                // Display products
+                final product = _products[index];
+                return Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: ProductCard(product: product),
+                );
+              } else if (index == _products.length) {
+                // Display spacing before posts
+                return SizedBox(height: 16.0);
+              } else {
+                // Display posts with comments
+                final postIndex = index - _products.length - 1;
+                if (postIndex < _posts.length) {
+                  final postWithComments = _posts[postIndex];
+                  final post = postWithComments['post'];
+                  final comments = postWithComments['comments'];
+                  return Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: PostCard(post: post, comments: comments),
+                  );
+                } else {
+                  return SizedBox.shrink(); // Hide if no more posts to show
+                }
+              }
+            },
+            childCount: _products.length + _posts.length + 2, // +2 for the spacing and loading indicator
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: _isLoadingMore
               ? Center(
             child: Padding(
               padding: const EdgeInsets.all(8.0),
               child: CircularProgressIndicator(),
             ),
           )
-              : SizedBox.shrink(); // Hide the indicator if not loading
-        }
-      },
+              : SizedBox.shrink(), // Hide the indicator if not loading
+        ),
+      ],
     );
   }
 
@@ -173,25 +191,34 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-class ProductCard extends StatelessWidget {
+class ProductCard extends StatefulWidget {
   final dynamic product;
 
   const ProductCard({Key? key, required this.product}) : super(key: key);
 
   @override
+  _ProductCardState createState() => _ProductCardState();
+}
+
+class _ProductCardState extends State<ProductCard> {
+  bool _isExpanded = false;
+
+  @override
   Widget build(BuildContext context) {
+    final int previewLineCount = 2; // Number of lines to show before "Show More"
+
     return Card(
       elevation: 5,
-      margin: EdgeInsets.all(8.0),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: EdgeInsets.all(4.0), // Reduced margin
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), // Reduced border radius
       child: Column(
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
+            borderRadius: BorderRadius.only(topLeft: Radius.circular(8), topRight: Radius.circular(8)),
             child: AspectRatio(
-              aspectRatio: 16 / 9, // Maintain a 16:9 aspect ratio for images
+              aspectRatio: 4 / 3, // Maintain a 16:9 aspect ratio for images
               child: Image.network(
-                product['thumbnail'],
+                widget.product['thumbnail'],
                 fit: BoxFit.cover, // Ensure the image covers the entire box
                 errorBuilder: (context, error, stackTrace) => Center(
                   child: Icon(Icons.error, color: Colors.red),
@@ -200,25 +227,50 @@ class ProductCard extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(8.0), // Reduced padding
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  product['title'],
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  widget.product['title'],
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold), // Reduced font size
                 ),
-                SizedBox(height: 8),
+                SizedBox(height: 4), // Reduced space
                 Text(
-                  '\$${product['price']}',
-                  style: TextStyle(fontSize: 16, color: Colors.teal),
+                  '\$${widget.product['price']}',
+                  style: TextStyle(fontSize: 14, color: Colors.teal), // Reduced font size
                 ),
-                SizedBox(height: 8),
+                SizedBox(height: 4), // Reduced space
                 Text(
-                  product['description'],
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
+                  widget.product['description'],
+                  style: TextStyle(color: Colors.black87),
+                  maxLines: _isExpanded ? null : previewLineCount,
+                  overflow: _isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
                 ),
+                if (! _isExpanded)
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _isExpanded = true;
+                      });
+                    },
+                    child: Text(
+                      'Show More',
+                      style: TextStyle(color: Colors.teal),
+                    ),
+                  ),
+                if (_isExpanded)
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _isExpanded = false;
+                      });
+                    },
+                    child: Text(
+                      'Show Less',
+                      style: TextStyle(color: Colors.teal),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -227,7 +279,6 @@ class ProductCard extends StatelessWidget {
     );
   }
 }
-
 
 class PostCard extends StatefulWidget {
   final dynamic post;
@@ -247,9 +298,9 @@ class _PostCardState extends State<PostCard> {
     final int previewLineCount = 3; // Number of lines to show before "Show More"
 
     return Card(
-      elevation: 4,
-      margin: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      elevation: 6,
+      margin: EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -257,7 +308,7 @@ class _PostCardState extends State<PostCard> {
           children: [
             Text(
               widget.post['title'],
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.teal),
             ),
             SizedBox(height: 8), // Add space between title and body
             Text(
@@ -275,7 +326,7 @@ class _PostCardState extends State<PostCard> {
                 },
                 child: Text(
                   'Show More',
-                  style: TextStyle(color: Colors.teal),
+                  style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold),
                 ),
               ),
             if (_isExpanded)
@@ -287,21 +338,41 @@ class _PostCardState extends State<PostCard> {
                 },
                 child: Text(
                   'Show Less',
-                  style: TextStyle(color: Colors.teal),
+                  style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold),
                 ),
               ),
+            SizedBox(height: 12), // Add space before comments
             if (widget.comments.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0), // Add space before comments
-                child: ExpansionTile(
-                  title: Text('Comments', style: TextStyle(fontWeight: FontWeight.bold)),
-                  children: widget.comments.map((comment) {
-                    return ListTile(
-                      title: Text(comment['body']),
-                      subtitle: Text('By ${comment['user']['username']}'),
-                    );
-                  }).toList(),
+              ExpansionTile(
+                title: Text(
+                  'Comments (${widget.comments.length})',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.teal),
                 ),
+                children: widget.comments.map((comment) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0), // Add space between comments
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              comment['body'],
+                              style: TextStyle(color: Colors.black87, fontSize: 16),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'By ${comment['user']['username']}',
+                              style: TextStyle(color: Colors.grey[600], fontSize: 14, fontStyle: FontStyle.italic),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
               ),
           ],
         ),
@@ -309,4 +380,3 @@ class _PostCardState extends State<PostCard> {
     );
   }
 }
-
