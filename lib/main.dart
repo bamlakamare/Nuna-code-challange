@@ -25,7 +25,7 @@ class MyApp extends StatelessWidget {
       navigatorKey: navigatorKey,
       initialRoute: '/',
       routes: {
-        '/': (context) => home_Screen(),
+        '/': (context) => MainScreen(),
         '/videoList': (context) => VideoListScreen(),
       },
     );

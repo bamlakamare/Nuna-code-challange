@@ -1,37 +1,32 @@
+// lib/services/api_service.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../models/product.dart';
-import '../models/post.dart';
-import '../models/comment.dart';
 
 class ApiService {
-  final String baseUrl = 'https://dummyjson.com';
+  static const _baseUrl = 'https://dummyjson.com';
 
-  Future<List<Product>> fetchProducts() async {
-    final response = await http.get(Uri.parse('$baseUrl/products'));
+  Future<List<dynamic>> fetchProducts() async {
+    final response = await http.get(Uri.parse('$_baseUrl/products?limit=10'));
     if (response.statusCode == 200) {
-      final data = json.decode(response.body)['products'] as List;
-      return data.map((json) => Product.fromJson(json)).toList().take(10).toList();
+      return json.decode(response.body)['products'];
     } else {
       throw Exception('Failed to load products');
     }
   }
 
-  Future<List<Post>> fetchPosts() async {
-    final response = await http.get(Uri.parse('$baseUrl/posts'));
+  Future<List<dynamic>> fetchPosts(int skip) async {
+    final response = await http.get(Uri.parse('$_baseUrl/posts?skip=$skip&limit=4'));
     if (response.statusCode == 200) {
-      final data = json.decode(response.body)['posts'] as List;
-      return data.map((json) => Post.fromJson(json)).toList();
+      return json.decode(response.body)['posts'];
     } else {
       throw Exception('Failed to load posts');
     }
   }
 
-  Future<List<Comment>> fetchComments(int postId) async {
-    final response = await http.get(Uri.parse('$baseUrl/comments/post/$postId'));
+  Future<List<dynamic>> fetchComments(int postId) async {
+    final response = await http.get(Uri.parse('$_baseUrl/comments/post/$postId?limit=10'));
     if (response.statusCode == 200) {
-      final data = json.decode(response.body)['comments'] as List;
-      return data.map((json) => Comment.fromJson(json)).toList().take(10).toList();
+      return json.decode(response.body)['comments'];
     } else {
       throw Exception('Failed to load comments');
     }

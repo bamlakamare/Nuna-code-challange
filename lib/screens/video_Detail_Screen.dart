@@ -1,183 +1,160 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:video_player/video_player.dart';
-import '../models/video.dart';
+import '../services/video_api_service.dart';
 
 class VideoDetailScreen extends StatefulWidget {
   final String videoId;
 
-  VideoDetailScreen({required this.videoId});
+  const VideoDetailScreen({Key? key, required this.videoId}) : super(key: key);
 
   @override
   _VideoDetailScreenState createState() => _VideoDetailScreenState();
 }
 
 class _VideoDetailScreenState extends State<VideoDetailScreen> {
-  late VideoPlayerController _controller;
-  Future<VideoDetails>? _videoDetails;
+  final VideoApiService _apiService = VideoApiService();
+  late VideoPlayerController _videoPlayerController;
+  late Future<void> _initializeVideoPlayerFuture;
+  bool _isLoading = true;
+  double _playbackSpeed = 1.0; // Default playback speed
 
   @override
   void initState() {
     super.initState();
-    _videoDetails = fetchVideoDetails(widget.videoId);
+    _fetchVideoDetails();
   }
 
-  Future<VideoDetails> fetchVideoDetails(String videoId) async {
-    final String detailsUrl =
-        'https://nu-exercise-videos-api-93ee2892edae.herokuapp.com/api/videos/$videoId';
-    final Map<String, String> headers = {
-      'x-apikey-header': 'api-access-key-5544',
-    };
+  void _fetchVideoDetails() async {
+    try {
+      final videoDetails = await _apiService.fetchVideoDetails(widget.videoId);
+      final videoUrl = videoDetails['videoUrl'].replaceAll('view?usp=drive_link', 'preview'); // Adjust URL for direct streaming
 
-    final response = await http.get(Uri.parse(detailsUrl), headers: headers);
+      _videoPlayerController = VideoPlayerController.network(videoUrl);
+      _initializeVideoPlayerFuture = _videoPlayerController.initialize();
+      _videoPlayerController.setLooping(true);
 
-    if (response.statusCode == 200) {
-      return VideoDetails.fromJson(json.decode(response.body));
-    } else {
-      throw Exception('Failed to load video details');
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      // Handle error
+      print('Error: $e');
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _videoPlayerController.dispose();
     super.dispose();
+  }
+
+  void _changePlaybackSpeed(double speed) {
+    setState(() {
+      _playbackSpeed = speed;
+      _videoPlayerController.setPlaybackSpeed(_playbackSpeed);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back,color: Colors.teal,),
-            onPressed: () {
-              Navigator.pop(context);
-            },
-          ),
-          title: Text('Video Player', style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold)),
-        ),
-        body: FutureBuilder<VideoDetails>(
-          future: _videoDetails,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(child: CircularProgressIndicator());
-            } else if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
-            } else {
-              final videoDetails = snapshot.data!;
-              final videoUrl = videoDetails.videoUrl;
-      
-              // Initialize the video player controller
-              _controller = VideoPlayerController.network(videoUrl)
-                ..initialize().then((_) {
-                  setState(() {});
-                });
-      
-              return Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-
-                    _controller.value.isInitialized
-                        ? ClipRRect(
-                      borderRadius: BorderRadius.circular(12.0),
-                      child: AspectRatio(
-                        aspectRatio: _controller.value.aspectRatio,
-                        child: VideoPlayer(_controller),
-                      ),
-                    )
-                        : Center(child: CircularProgressIndicator(color: Colors.teal,)),
-      
-                    SizedBox(height: 16),
-
-                    VideoProgressIndicator(
-                      _controller,
-                      allowScrubbing: true,
-                      colors: VideoProgressColors(
-                        playedColor: Colors.teal,
-                        bufferedColor: Colors.tealAccent.withOpacity(0.5),
-                        backgroundColor: Colors.grey.withOpacity(0.2),
-                      ),
-                    ),
-      
-                    SizedBox(height: 16),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildControlButton(
-                          icon: Icons.replay_10,
-                          onPressed: () {
-                            final newPosition =
-                                _controller.value.position - Duration(seconds: 10);
-                            _controller.seekTo(
-                                newPosition > Duration.zero ? newPosition : Duration.zero);
-                          },
-                        ),
-                        _buildControlButton(
-                          icon: _controller.value.isPlaying
-                              ? Icons.pause
-                              : Icons.play_arrow,
-                          onPressed: () {
-                            setState(() {
-                              _controller.value.isPlaying
-                                  ? _controller.pause()
-                                  : _controller.play();
-                            });
-                          },
-                        ),
-                        _buildControlButton(
-                          icon: Icons.forward_10,
-                          onPressed: () {
-                            final newPosition =
-                                _controller.value.position + Duration(seconds: 10);
-                            _controller.seekTo(newPosition);
-                          },
-                        ),
-                        _buildControlButton(
-                          icon: Icons.speed,
-                          onPressed: () {
-                            final newSpeed =
-                            _controller.value.playbackSpeed == 1.0 ? 1.5 : 1.0;
-                            _controller.setPlaybackSpeed(newSpeed);
-                          },
-                        ),
-                      ],
-                    ),
-      
-                    SizedBox(height: 16),
-
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text(
-                        videoDetails.title,
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.teal,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-          },
-        ),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Video Details'),
+        backgroundColor: Colors.teal,
       ),
-    );
-  }
-
-  Widget _buildControlButton({required IconData icon, required VoidCallback onPressed}) {
-    return IconButton(
-      icon: Icon(icon),
-      color: Colors.teal,
-      iconSize: 32,
-      onPressed: onPressed,
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator())
+          : FutureBuilder<void>(
+        future: _initializeVideoPlayerFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.done) {
+            return Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AspectRatio(
+                    aspectRatio: _videoPlayerController.value.aspectRatio,
+                    child: VideoPlayer(_videoPlayerController),
+                  ),
+                  SizedBox(height: 16),
+                  VideoProgressIndicator(
+                    _videoPlayerController,
+                    allowScrubbing: true,
+                    padding: EdgeInsets.symmetric(vertical: 8.0),
+                  ),
+                  SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.replay_10),
+                        onPressed: () {
+                          _videoPlayerController.seekTo(
+                            _videoPlayerController.value.position - Duration(seconds: 10),
+                          );
+                        },
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          _videoPlayerController.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            if (_videoPlayerController.value.isPlaying) {
+                              _videoPlayerController.pause();
+                            } else {
+                              _videoPlayerController.play();
+                            }
+                          });
+                        },
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.forward_10),
+                        onPressed: () {
+                          _videoPlayerController.seekTo(
+                            _videoPlayerController.value.position + Duration(seconds: 10),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () => _changePlaybackSpeed(0.5),
+                        child: Text('0.5x'),
+                      ),
+                      SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () => _changePlaybackSpeed(1.0),
+                        child: Text('1.0x'),
+                      ),
+                      SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () => _changePlaybackSpeed(1.5),
+                        child: Text('1.5x'),
+                      ),
+                      SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () => _changePlaybackSpeed(2.0),
+                        child: Text('2.0x'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          } else {
+            return Center(child: CircularProgressIndicator());
+          }
+        },
+      ),
     );
   }
 }
